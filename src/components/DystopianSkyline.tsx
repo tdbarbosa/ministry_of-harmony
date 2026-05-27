@@ -105,6 +105,12 @@ export default function DystopianSkyline({ isHacked, glitchActive, resonanceFreq
       mouseRef.current.x += (mouseRef.current.targetX - mouseRef.current.x) * 0.05;
       mouseRef.current.y += (mouseRef.current.targetY - mouseRef.current.y) * 0.05;
 
+      // Guard against zero-size or non-finite canvas measurements which can crash createLinearGradient
+      if (!width || !height || width <= 0 || height <= 0 || !Number.isFinite(width) || !Number.isFinite(height)) {
+        animationFrameId = requestAnimationFrame(render);
+        return;
+      }
+
       // Color Palette shifting
       // Normal: Black base, deep crimson towers, intense red energy
       // Unlocked/Hacked: Deep charcoal blue background, high-contrast gold/amber towers and glorious gold rays
@@ -139,9 +145,21 @@ export default function DystopianSkyline({ isHacked, glitchActive, resonanceFreq
         const towerH = (1 - tower.heightFactor) * height; // Top of the tower
         const hReal = height - towerH;
 
-        // Apply mouse-based parallax
-        const parallaxOffsetX = ((mouseRef.current.x - width / 2) / width) * (tower.heightFactor * 15);
+        // Apply mouse-based parallax with division-by-zero guard
+        const denominator = width || 1;
+        const parallaxOffsetX = ((mouseRef.current.x - denominator / 2) / denominator) * (tower.heightFactor * 15);
         const drawX = towerX + parallaxOffsetX;
+
+        // Ensure positions and dimensions are fully finite numbers before creating canvas paths/gradients
+        if (
+          !Number.isFinite(drawX) ||
+          !Number.isFinite(towerW) ||
+          !Number.isFinite(towerH) ||
+          !Number.isFinite(height) ||
+          towerW <= 0
+        ) {
+          return;
+        }
 
         // Draw the concrete tower shadow structure
         const grad = ctx.createLinearGradient(drawX, towerH, drawX + towerW, height);
@@ -199,16 +217,19 @@ export default function DystopianSkyline({ isHacked, glitchActive, resonanceFreq
           // In hacked mode, show sacred cross or soundwaves pulsing inside chapel ruins under the main tower
           if (tower.mainEmiter && isHacked) {
             // Golden beams shooting upwards
-            const beamGrad = ctx.createLinearGradient(drawX + towerW*0.5, towerH, drawX + towerW*0.5, 0);
-            beamGrad.addColorStop(0, 'rgba(195, 155, 52, 0.4)');
-            beamGrad.addColorStop(1, 'rgba(195, 155, 52, 0)');
-            ctx.fillStyle = beamGrad;
-            ctx.beginPath();
-            ctx.moveTo(drawX + towerW * 0.3, towerH);
-            ctx.lineTo(drawX + towerW * 0.5 - 40, 0);
-            ctx.lineTo(drawX + towerW * 0.5 + 40, 0);
-            ctx.lineTo(drawX + towerW * 0.7, towerH);
-            ctx.fill();
+            const beamX = drawX + towerW * 0.5;
+            if (Number.isFinite(beamX) && Number.isFinite(towerH)) {
+              const beamGrad = ctx.createLinearGradient(beamX, towerH, beamX, 0);
+              beamGrad.addColorStop(0, 'rgba(195, 155, 52, 0.4)');
+              beamGrad.addColorStop(1, 'rgba(195, 155, 52, 0)');
+              ctx.fillStyle = beamGrad;
+              ctx.beginPath();
+              ctx.moveTo(drawX + towerW * 0.3, towerH);
+              ctx.lineTo(drawX + towerW * 0.5 - 40, 0);
+              ctx.lineTo(drawX + towerW * 0.5 + 40, 0);
+              ctx.lineTo(drawX + towerW * 0.7, towerH);
+              ctx.fill();
+            }
           }
         }
       });
