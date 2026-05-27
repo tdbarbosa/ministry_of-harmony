@@ -1,0 +1,6 @@
+{
+  "name": "Ministry of Harmony",
+  "description": "The official citizen stabilization portal. Emotional optimization, frequency calibration, and unauthorized resonance monitoring.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
