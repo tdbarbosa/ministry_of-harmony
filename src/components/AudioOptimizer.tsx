@@ -2,6 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX, Eye, EyeOff, Radio, RefreshCw, AlertTriangle, Flame } from 'lucide-react';
 import { Language, TRANSLATIONS } from '../i18n';
 
+const SPOKEN_WARNINGS: Record<string, string> = {
+  en: "You are being deceived. What you hear is not peace, it is forced silence. Wake up.",
+  pt: "Vocês estão sendo enganados. O que vocês ouvem não é a paz, é um silêncio forçado. Acordem.",
+  es: "Están siendo engañados. Lo que escuchan no es paz, es un silencio forzado. Despierten."
+};
+
 interface AudioOptimizerProps {
   onAwakenUnlocked: (unlocked: boolean) => void;
   frequency: number;
@@ -42,6 +48,9 @@ export default function AudioOptimizer({
   // Analyser node for drawing waveform
   const analyserRef = useRef<AnalyserNode | null>(null);
   const waveformCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Spoken alarm tracking
+  const lastSpokenTimeRef = useRef<number>(0);
 
   // Start / Init Web Audio
   const initAudio = () => {
@@ -117,9 +126,16 @@ export default function AudioOptimizer({
       pulseGainRef.current = hGain;
 
       // 3. SECRETS HARMONICS - Resistance Golden chord node
+      // Connect to a low-pass filter to keep notes warm, deep, and prevent any high pitched discomfort.
+      const altarsFilter = ctx.createBiquadFilter();
+      altarsFilter.type = 'lowpass';
+      altarsFilter.frequency.setValueAtTime(320, ctx.currentTime); // Filter high frequencies, keeping our core sines warm
+
       const altarsGainNode = ctx.createGain();
       altarsGainNode.gain.setValueAtTime(0.0, ctx.currentTime);
-      altarsGainNode.connect(masterGain);
+      
+      altarsFilter.connect(masterGain);
+      altarsGainNode.connect(altarsFilter);
       chordsGainRef.current = altarsGainNode;
 
       // Start core generators
@@ -175,6 +191,9 @@ export default function AudioOptimizer({
 
   const stopAllAudio = () => {
     try {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
       driftOscRef1.current?.stop();
       driftOscRef2.current?.stop();
       lfoRef.current?.stop();
@@ -216,29 +235,56 @@ export default function AudioOptimizer({
       
       onAwakenUnlocked(true);
 
-      // Play secret chord sound layers (freedom synth sweeps) in real-time
+      // Speak subtle, eerie alert message ("Vocês estão sendo enganados...") to interest the listener
+      const now = Date.now();
+      // Only speak every 14 seconds to intrigue the listener without being spammy
+      if (now - lastSpokenTimeRef.current > 14000) {
+        lastSpokenTimeRef.current = now;
+        try {
+          if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const message = SPOKEN_WARNINGS[language] || SPOKEN_WARNINGS.en;
+            const utterance = new SpeechSynthesisUtterance(message);
+            utterance.rate = 0.85; // Slow down for chilling/mechanical dystopian feeling
+            utterance.pitch = language === 'pt' ? 0.75 : 0.65; // Eerie deep tone
+            utterance.volume = 0.95;
+            
+            if (language === 'pt') {
+              utterance.lang = 'pt-BR';
+            } else if (language === 'es') {
+              utterance.lang = 'es-ES';
+            } else {
+              utterance.lang = 'en-US';
+            }
+            window.speechSynthesis.speak(utterance);
+          }
+        } catch (e) {
+          console.error("Speech synthesis failed", e);
+        }
+      }
+
+      // Play secret chord sound layers (freedom synth sweeps) in real-time - much quieter and low-pass filtered
       if (chordsGainRef.current) {
-        const gainVal = 0.52 * power;
+        const gainVal = 0.18 * power; // Extremely warm, subtle and pleasant volume setting
         chordsGainRef.current.gain.setTargetAtTime(gainVal, ctx.currentTime, 0.15);
       }
 
-      // Spawn synth notes representing choral church organs breaking through the metallic rust
+      // Spawn synth notes representing choral/ambient church organ elements under St Leo
       if (chordsOscsRef.current.length === 0) {
-        // Chord progression built from harmonic intervals (D, F#, A, C#)
-        // Root freq: 444Hz
+        // Deep warm harmonies: undertone, sub-bass, root, and sweet perfect fourth
         const base = frequency;
-        const freqs = [base, base * 1.25, base * 1.5, base * 1.875]; // Beautiful Major 7th chord!
+        const freqs = [base / 2, base / 4, base, base * 0.75];
 
         chordsOscsRef.current = freqs.map((f, index) => {
           const osc = ctx.createOscillator();
-          osc.type = index % 2 === 0 ? 'sine' : 'triangle';
+          osc.type = 'sine'; // Only pure, non-screechy sine wave
           osc.frequency.setValueAtTime(f, ctx.currentTime);
           
-          // Slight chorus detune effect
+          // Gentle detuning chorus for warmth
           const detune = ctx.createOscillator();
           const detuneGain = ctx.createGain();
-          detune.frequency.setValueAtTime(0.5 + index * 0.1, ctx.currentTime);
-          detuneGain.gain.setValueAtTime(3 + index, ctx.currentTime);
+          detune.frequency.setValueAtTime(0.4 + index * 0.05, ctx.currentTime);
+          detuneGain.gain.setValueAtTime(1.5 + index * 0.5, ctx.currentTime);
           
           detune.connect(detuneGain);
           detuneGain.connect(osc.frequency);
@@ -251,7 +297,7 @@ export default function AudioOptimizer({
       } else {
         // Live modulate frequencies based on slide drag
         const base = frequency;
-        const freqs = [base, base * 1.25, base * 1.5, base * 1.875];
+        const freqs = [base / 2, base / 4, base, base * 0.75];
         chordsOscsRef.current.forEach((osc, idx) => {
           if (osc) {
             osc.frequency.setTargetAtTime(freqs[idx], ctx.currentTime, 0.08);
@@ -269,6 +315,13 @@ export default function AudioOptimizer({
       setIsAlerting(false);
       setRebellionPower(0);
       onAwakenUnlocked(false);
+
+      // Instantly cancel speaking when dial is detuned or paused
+      try {
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+      } catch (e) {}
 
       // Silence the golden chord synthesizer
       if (chordsGainRef.current) {
@@ -290,7 +343,7 @@ export default function AudioOptimizer({
         });
       }
     }
-  }, [frequency, isPlaying, onAwakenUnlocked]);
+  }, [frequency, isPlaying, onAwakenUnlocked, language]);
 
   // Adjust overall master gain based on general calibrator sliders (compliance slider)
   useEffect(() => {

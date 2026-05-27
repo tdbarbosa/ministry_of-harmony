@@ -11,6 +11,7 @@ import BreachIntrusionModal from './components/BreachIntrusionModal';
 import SystemBreachAlert from './components/SystemBreachAlert';
 import InvasiveGlitchOverlay from './components/InvasiveGlitchOverlay';
 import BreachHistoryPanel, { BreachRecord } from './components/BreachHistoryPanel';
+import SectorMap from './components/SectorMap';
 
 import { Language, TRANSLATIONS, LOCALIZED_DOCS } from './i18n';
 
@@ -20,7 +21,7 @@ export default function App() {
   const [frequency, setFrequency] = useState(180); // baseline Drift
   const [isUnlocked, setIsUnlocked] = useState(false); // Awakening Unlocked
   const [glitchActive, setGlitchActive] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'term' | 'compliance' | 'altar'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'term' | 'compliance' | 'altar' | 'map'>('overview');
   const [showDecryptGuide, setShowDecryptGuide] = useState(false);
   const [showBreachModal, setShowBreachModal] = useState(false);
   const [showBreachAlert, setShowBreachAlert] = useState(false);
@@ -424,6 +425,19 @@ export default function App() {
               <span className="absolute -top-1 -right-1 bg-yellow-500 w-2 h-2 rounded-full animate-ping" />
             )}
           </button>
+          <button 
+            onClick={() => { setActiveTab('map'); triggerGlitch(); }}
+            className={`px-4 py-2.5 cursor-pointer border-t -mb-px transition-all duration-300 uppercase tracking-widest relative ${
+              activeTab === 'map' 
+                ? isUnlocked ? 'text-brand-gold border-brand-gold bg-brand-gold/5 font-semibold' : 'text-brand-accent-red border-brand-accent-red bg-brand-accent-red/5 font-semibold' 
+                : 'text-zinc-500 border-transparent hover:text-zinc-300'
+            }`}
+          >
+            {language === 'pt' ? '[05. MAPA DO SETOR 09]' : language === 'es' ? '[05. MAPA SECTOR 09]' : '[05. SECTOR 09 MAP]'}
+            {!isUnlocked && (frequency === 444 || frequency === 777) && (
+              <span className="absolute -top-1 -right-1 bg-amber-500 w-2 h-2 rounded-full animate-ping" />
+            )}
+          </button>
         </div>
 
         {/* 4. DYNAMIC SECTION GRID COMPOSITIONS */}
@@ -626,6 +640,34 @@ export default function App() {
                     onPlayTrigger={triggerGlitch}
                     isUnlocked={isUnlocked}
                     language={language}
+                  />
+                </motion.div>
+              )}
+
+              {/* TAB 5: Interactive 2D Map of Sector 09 */}
+              {activeTab === 'map' && (
+                <motion.div
+                  key="map"
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -15 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <SectorMap 
+                    frequency={frequency}
+                    isUnlocked={isUnlocked}
+                    language={language}
+                    onPinAdded={(label, lat, lng) => {
+                      addBreachToHistory(
+                        'manual_awaken',
+                        language === 'pt' 
+                          ? `Baliza tática lançada em ${label} (${lat}, ${lng}): Transmissor AudiosFree ativo.`
+                          : language === 'es'
+                            ? `Baliza de rebelión desplegada en ${label} (${lat}, ${lng}): Señal activa.`
+                            : `Tactical rebel beacon deployed at ${label} (${lat}, ${lng}): Alternate frequency sync confirmed.`
+                      );
+                      triggerGlitch();
+                    }}
                   />
                 </motion.div>
               )}
