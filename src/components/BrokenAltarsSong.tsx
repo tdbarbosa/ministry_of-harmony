@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, Music, Flame, MapPin, Eye, Radio, Sparkles } from 'lucide-react';
 import { Language, TRANSLATIONS, LOCALIZED_SONG } from '../i18n';
+// @ts-ignore
+import audiosFreeLogo from '../assets/images/audiosfree_logo_1779824392501.png';
 
 interface BrokenAltarsSongProps {
   onPlayTrigger: () => void;
@@ -93,7 +95,7 @@ export default function BrokenAltarsSong({ onPlayTrigger, isUnlocked, language }
               } rounded-full blur opacity-50 group-hover:opacity-80 transition duration-700 animate-pulse`} />
               
               <img 
-                src="/src/assets/images/audiosfree_logo_1779824392501.png" 
+                src={audiosFreeLogo} 
                 alt="AudiosFree Dystopian Resistance Logo" 
                 referrerPolicy="no-referrer"
                 className={`w-28 h-28 object-contain rounded-full relative z-10 border ${
